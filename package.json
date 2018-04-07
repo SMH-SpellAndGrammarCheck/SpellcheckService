@@ -1,0 +1,21 @@
+{
+  "name": "spellcheck",
+  "version": "1.0.0",
+  "description": "backing service calling the bing spell check",
+  "main": "service.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node service.js"
+  },
+  "keywords": [
+    "spell check",
+    "bing"
+  ],
+  "author": "SMH - Sandro Speth, Matthias Hermann, Heiko Geppert",
+  "license": "MIT",
+  "dependencies": {
+    "https": "0.0.0",
+    "nodemon": "^1.17.3"
+  },
+  "devDependencies": {}
+}
