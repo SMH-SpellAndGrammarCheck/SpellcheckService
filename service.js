@@ -1,6 +1,6 @@
 'use strict';
 //var azure = require('azure');
-let https = require ('https');
+let https = require('https');
 var fs = require("fs");
 var azure = require('azure');
 
@@ -26,28 +26,28 @@ let mkt = "en-US";
 let mode = "proof";
 let query_string = "?mkt=" + mkt + "&mode=" + mode;
 
-let request_params = function() {
+let request_params = function () {
     return {
-        method : 'POST',
-        hostname : host,
-        path : path + query_string,
-        headers : {
-            'Content-Type' : 'application/x-www-form-urlencoded',
-            'Content-Length' : text.length + 5,
-            'Ocp-Apim-Subscription-Key' : key,
-    //        'X-Search-Location' : CLIENT_LOCATION,
-    //        'X-MSEdge-ClientID' : CLIENT_ID,
-    //        'X-MSEdge-ClientIP' : CLIENT_ID,
+        method: 'POST',
+        hostname: host,
+        path: path + query_string,
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Content-Length': text.length + 5,
+            'Ocp-Apim-Subscription-Key': key,
+            //        'X-Search-Location' : CLIENT_LOCATION,
+            //        'X-MSEdge-ClientID' : CLIENT_ID,
+            //        'X-MSEdge-ClientIP' : CLIENT_ID,
         }
     };
 };
 
 let response_handler = function (response) {
     let body = '';
-    response.on ('data', function (d) {
+    response.on('data', function (d) {
         body += d;
     });
-    response.on ('end', function () {
+    response.on('end', function () {
         let json = JSON.parse(body);
         console.log("original text: " + text);
         //console.log("response: " + body);
@@ -57,38 +57,44 @@ let response_handler = function (response) {
         let flaggedTokens = json.flaggedTokens; //JSON.parse(json.flaggedTokens);
         console.log("ft: " + flaggedTokens);
 
+        let findings = [];
+
         flaggedTokens.forEach(element => {
-            console.log(element.suggestions[0]);            
-            var correction =element.suggestions[0].suggestion;
-            
+            console.log(element.suggestions[0]);
+            var correction = element.suggestions[0].suggestion;
+
             // push answer into next queue
+            /*
             console.log("relevant values:");
             console.log(text);
             console.log(element.token);
             console.log(correction);
             console.log(customProperties);
             console.log("================");
+            */
+           findings.push([element.token, correction]);
         });
-
+        
+        send(text, findings, customProperties);
     });
-    response.on ('error', function (e) {
-        console.log ('Error: ' + e.message);
+    response.on('error', function (e) {
+        console.log('Error: ' + e.message);
     });
 };
 
-let spellcheck_call = function(originalText) {
+let spellcheck_call = function (originalText) {
     text = ""
-    text = "Tthis is a hard cded stub. " + originalText;
+    text = originalText;
     console.log("size: " + text.length);
-    let req = https.request (request_params(), response_handler);
-    req.write ("text=" + text);
+    let req = https.request(request_params(), response_handler);
+    req.write("text=" + text);
     //console.log(req);
-    req.end ();
+    req.end();
 };
 
-let receive = function() {
-    serviceBusService.receiveQueueMessage('texttoworker', function(error, receivedMessage){
-        if(!error){
+let receive = function () {
+    serviceBusService.receiveQueueMessage('texttoworker', function (error, receivedMessage) {
+        if (!error) {
             // Message received and deleted
             //console.log("headers2: " + receivedMessage.customProperties);
             customProperties = receivedMessage.customProperties;
@@ -99,24 +105,25 @@ let receive = function() {
         // *TODO* insert receive again
         //receive();
     });
-    /*
-    serviceBusService.receiveQueueMessage('texttoworker', { isPeekLock: true }, function(error, lockedMessage){
-        if(!error){
-            // Message received and locked
-            console.log("receive2");
-            spellcheck_call(lockedMessage.body);
-            
-            serviceBusService.deleteMessage(lockedMessage, function (deleteError){
-                if(!deleteError){
-                    // Message deleted
-                }
-            });
-        } else {
-            console.log("error2");
+};
+
+let send = function (text, findings, metaData) {
+    let message = {
+        body: {
+            original: text,
+            findings: findings,
+        },
+        customProperties: metaData
+    };
+
+    serviceBusService.sendQueueMessage('workertoaggregator', JSON.stringify(message), function (error) {
+        if (!error) {
+            // message sent
+            console.log('[Log] Sending message ' + message.customProperties.chunknr);
+            console.log('[Log] content ' + JSON.stringify(message.body));
         }
     });
-    */
-};
+}
 
 console.log("SpellcheckService...");
 
