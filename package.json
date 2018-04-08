@@ -7,6 +7,10 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node service.js"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SMH-SpellAndGrammarCheck/SpellcheckService.git"
+  },
   "keywords": [
     "spell check",
     "bing"

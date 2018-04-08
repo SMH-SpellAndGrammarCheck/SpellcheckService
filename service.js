@@ -7,10 +7,19 @@ var azure = require('azure');
 let host = 'api.cognitive.microsoft.com';
 let path = '/bing/v7.0/spellcheck';
 
+/*
+// for local execution
 var content = fs.readFileSync("cred.json");
 var cred = JSON.parse(content);
-/* NOTE: Replace this example key with a valid subscription key (see the Prequisites section above). Also note v5 and v7 require separate subscription keys. */
-let key = cred.key1;
+// NOTE: Replace this example key with a valid subscription key (see the Prequisites section above). Also note v5 and v7 require separate subscription keys. 
+let 
+let cred = {
+        "key":cred.key1;
+        "receiveQueue":"texttoworker",
+        "sendQueue":"workertoaggregator"
+    }
+
+*/
 
 let serviceBusService = azure.createServiceBusService(cred.text2worker);
 
@@ -25,6 +34,20 @@ let customProperties;
 let mkt = "en-US";
 let mode = "proof";
 let query_string = "?mkt=" + mkt + "&mode=" + mode;
+
+let cred = {};
+if (process.env.QUEUE_NAME === undefined || process.env.CONNECTION_STRING === undefined) {
+    queueData = JSON.parse(fs.readFileSync(__dirname + '/queue.json', 'utf8', (err) => {
+        console.log('[Error] Error while reading queue data');
+    }));
+} else {
+    cred = {
+        "key": process.env.BING_KEY,
+        "receiveQueue": process.env.RECEIVE_QUEUE,
+        "sendQueue": process.env.SEND_QUEUE
+    }
+}
+
 
 let request_params = function () {
     return {
@@ -72,9 +95,9 @@ let response_handler = function (response) {
             console.log(customProperties);
             console.log("================");
             */
-           findings.push([element.token, correction]);
+            findings.push([element.token, correction]);
         });
-        
+
         send(text, findings, customProperties);
     });
     response.on('error', function (e) {
@@ -93,7 +116,7 @@ let spellcheck_call = function (originalText) {
 };
 
 let receive = function () {
-    serviceBusService.receiveQueueMessage('texttoworker', function (error, receivedMessage) {
+    serviceBusService.receiveQueueMessage(cred.receiveQueue, function (error, receivedMessage) {
         if (!error) {
             // Message received and deleted
             //console.log("headers2: " + receivedMessage.customProperties);
@@ -103,7 +126,7 @@ let receive = function () {
             console.log("error");
         }
         // *TODO* insert receive again
-        //receive();
+        receive();
     });
 };
 
@@ -116,7 +139,7 @@ let send = function (text, findings, metaData) {
         customProperties: metaData
     };
 
-    serviceBusService.sendQueueMessage('workertoaggregator', JSON.stringify(message), function (error) {
+    serviceBusService.sendQueueMessage(cred.sendQueue, JSON.stringify(message), function (error) {
         if (!error) {
             // message sent
             console.log('[Log] Sending message ' + message.customProperties.chunknr);
