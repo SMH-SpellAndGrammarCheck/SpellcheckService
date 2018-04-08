@@ -33,20 +33,27 @@ let mkt = "en-US";
 let mode = "proof";
 let query_string = "?mkt=" + mkt + "&mode=" + mode;
 
-let cred = {};
+var cred = {};
 if (process.env.RECEIVE_QUEUE === undefined || process.env.SEND_QUEUE === undefined) {
-    queueData = JSON.parse(fs.readFileSync(__dirname + '/queue.json', 'utf8', (err) => {
-        console.log('[Error] Error while reading queue data');
-    }));
+    var content = fs.readFileSync("cred.json");
+    var cont = JSON.parse(content);
+    cred = {
+        key:cont.key1,
+        queue:cont.queue,
+        receiveQueue:"texttoworker",
+        sendQueue:"workertoaggregator"
+    };
+
 } else {
     cred = {
-        "key": process.env.BING_KEY,
-        "receiveQueue": process.env.RECEIVE_QUEUE,
-        "sendQueue": process.env.SEND_QUEUE
-    }
+        key: process.env.BING_KEY,
+        queue:process.env.QUEUE,
+        receiveQueue: process.env.RECEIVE_QUEUE,
+        sendQueue: process.env.SEND_QUEUE
+    };
 }
 
-let serviceBusService = azure.createServiceBusService(cred.env.RECEIVE_QUEUE);
+const serviceBusService = azure.createServiceBusService(cred.queue);
 
 
 let request_params = function () {
