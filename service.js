@@ -14,6 +14,9 @@ let key = cred.key1;
 
 let serviceBusService = azure.createServiceBusService(cred.text2worker);
 
+let text = "";
+let customProperties;
+
 // These values are used for optional headers (see below).
 // let CLIENT_ID = "<Client ID from Previous Response Goes Here>";
 // let CLIENT_IP = "999.999.999.999";
@@ -21,21 +24,22 @@ let serviceBusService = azure.createServiceBusService(cred.text2worker);
 
 let mkt = "en-US";
 let mode = "proof";
-let text = "Hollo, wrld!";
 let query_string = "?mkt=" + mkt + "&mode=" + mode;
 
-let request_params = {
-    method : 'POST',
-    hostname : host,
-    path : path + query_string,
-    headers : {
-        'Content-Type' : 'application/x-www-form-urlencoded',
-        'Content-Length' : text.length + 5,
-        'Ocp-Apim-Subscription-Key' : key,
-//        'X-Search-Location' : CLIENT_LOCATION,
-//        'X-MSEdge-ClientID' : CLIENT_ID,
-//        'X-MSEdge-ClientIP' : CLIENT_ID,
-    }
+let request_params = function() {
+    return {
+        method : 'POST',
+        hostname : host,
+        path : path + query_string,
+        headers : {
+            'Content-Type' : 'application/x-www-form-urlencoded',
+            'Content-Length' : text.length + 5,
+            'Ocp-Apim-Subscription-Key' : key,
+    //        'X-Search-Location' : CLIENT_LOCATION,
+    //        'X-MSEdge-ClientID' : CLIENT_ID,
+    //        'X-MSEdge-ClientIP' : CLIENT_ID,
+        }
+    };
 };
 
 let response_handler = function (response) {
@@ -44,19 +48,41 @@ let response_handler = function (response) {
         body += d;
     });
     response.on ('end', function () {
-        console.log (body);
-        // *TODO*
+        let json = JSON.parse(body);
+        console.log("original text: " + text);
+        //console.log("response: " + body);
+        //console.log(json.flaggedTokens);
+
         // build answer
-        // push answer into next queue
+        let flaggedTokens = json.flaggedTokens; //JSON.parse(json.flaggedTokens);
+        console.log("ft: " + flaggedTokens);
+
+        flaggedTokens.forEach(element => {
+            console.log(element.suggestions[0]);            
+            var correction =element.suggestions[0].suggestion;
+            
+            // push answer into next queue
+            console.log("relevant values:");
+            console.log(text);
+            console.log(element.token);
+            console.log(correction);
+            console.log(customProperties);
+            console.log("================");
+        });
+
     });
     response.on ('error', function (e) {
         console.log ('Error: ' + e.message);
     });
 };
 
-let spellcheck_call = function(text) {
-    let req = https.request (request_params, response_handler);
+let spellcheck_call = function(originalText) {
+    text = ""
+    text = "Tthis is a hard cded stub. " + originalText;
+    console.log("size: " + text.length);
+    let req = https.request (request_params(), response_handler);
     req.write ("text=" + text);
+    //console.log(req);
     req.end ();
 };
 
@@ -64,13 +90,14 @@ let receive = function() {
     serviceBusService.receiveQueueMessage('texttoworker', function(error, receivedMessage){
         if(!error){
             // Message received and deleted
-            console.log("body: " + receivedMessage.body);
+            //console.log("headers2: " + receivedMessage.customProperties);
+            customProperties = receivedMessage.customProperties;
             spellcheck_call(receivedMessage.body);
         } else {
             console.log("error");
         }
         // *TODO* insert receive again
-        receive();
+        //receive();
     });
     /*
     serviceBusService.receiveQueueMessage('texttoworker', { isPeekLock: true }, function(error, lockedMessage){
