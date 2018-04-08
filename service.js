@@ -1,12 +1,18 @@
 'use strict';
-
+//var azure = require('azure');
 let https = require ('https');
+var fs = require("fs");
+var azure = require('azure');
 
 let host = 'api.cognitive.microsoft.com';
 let path = '/bing/v7.0/spellcheck';
 
+var content = fs.readFileSync("cred.json");
+var cred = JSON.parse(content);
 /* NOTE: Replace this example key with a valid subscription key (see the Prequisites section above). Also note v5 and v7 require separate subscription keys. */
-let key = 'd4befc93f83749af89746950857313bf';
+let key = cred.key1;
+
+let serviceBusService = azure.createServiceBusService(cred.text2worker);
 
 // These values are used for optional headers (see below).
 // let CLIENT_ID = "<Client ID from Previous Response Goes Here>";
@@ -39,6 +45,7 @@ let response_handler = function (response) {
     });
     response.on ('end', function () {
         console.log (body);
+        // *TODO*
         // build answer
         // push answer into next queue
     });
@@ -51,11 +58,40 @@ let spellcheck_call = function(text) {
     let req = https.request (request_params, response_handler);
     req.write ("text=" + text);
     req.end ();
-}
+};
 
-console.log("SpellcheckService...")
+let receive = function() {
+    serviceBusService.receiveQueueMessage('texttoworker', function(error, receivedMessage){
+        if(!error){
+            // Message received and deleted
+            console.log("receive1");
+            console.log("body: " + receivedMessage.body);
+            spellcheck_call(receivedMessage.body);
+        } else {
+            console.log("error1");
+        }
+    });
+    /*
+    serviceBusService.receiveQueueMessage('texttoworker', { isPeekLock: true }, function(error, lockedMessage){
+        if(!error){
+            // Message received and locked
+            console.log("receive2");
+            spellcheck_call(lockedMessage.body);
+            
+            serviceBusService.deleteMessage(lockedMessage, function (deleteError){
+                if(!deleteError){
+                    // Message deleted
+                }
+            });
+        } else {
+            console.log("error2");
+        }
+    });
+    */
+};
 
-while(true){
-    // check queue 
-    // call spell_check
+console.log("SpellcheckService...");
+
+for(let i = 0; i < 100; i++){
+    receive();
 }
