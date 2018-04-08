@@ -21,8 +21,6 @@ let cred = {
 
 */
 
-let serviceBusService = azure.createServiceBusService(cred.text2worker);
-
 let text = "";
 let customProperties;
 
@@ -36,7 +34,7 @@ let mode = "proof";
 let query_string = "?mkt=" + mkt + "&mode=" + mode;
 
 let cred = {};
-if (process.env.QUEUE_NAME === undefined || process.env.CONNECTION_STRING === undefined) {
+if (process.env.RECEIVE_QUEUE === undefined || process.env.SEND_QUEUE === undefined) {
     queueData = JSON.parse(fs.readFileSync(__dirname + '/queue.json', 'utf8', (err) => {
         console.log('[Error] Error while reading queue data');
     }));
@@ -47,6 +45,8 @@ if (process.env.QUEUE_NAME === undefined || process.env.CONNECTION_STRING === un
         "sendQueue": process.env.SEND_QUEUE
     }
 }
+
+let serviceBusService = azure.createServiceBusService(cred.env.RECEIVE_QUEUE);
 
 
 let request_params = function () {
@@ -95,10 +95,13 @@ let response_handler = function (response) {
             console.log(customProperties);
             console.log("================");
             */
-            findings.push([element.token, correction]);
         });
-
-        send(text, findings, customProperties);
+        
+        findings.push([element.token, correction]);
+        let sentenceString = 'In the original sentence:\n' +
+        text + '\n the following tokens have been found:\n' + findings + '\n\n';
+        customProperties['findings'] = findings > 0;
+        send(sentence,  customProperties);
     });
     response.on('error', function (e) {
         console.log('Error: ' + e.message);
@@ -132,10 +135,7 @@ let receive = function () {
 
 let send = function (text, findings, metaData) {
     let message = {
-        body: {
-            original: text,
-            findings: findings,
-        },
+        body: text,
         customProperties: metaData
     };
 

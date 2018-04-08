@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 
-sudo docker stop maild
-sudo docker rm maild
+sudo docker stop spellcheck
+sudo docker rm spellcheck
+
+read BING_KEY
+read RECEIVE_QUEUE
+read SEND_QUEUE
 
 sudo docker run -d -it \
     --name=spellcheck \
-    -e QUEUE_NAME="${QUEUE_NAME}" \
-    -e CONNECTION_STRING="${CONNECTION_STRING}" \
+    -e BING_KEY="${BING_KEY}" \
+    -e RECEIVE_QUEUE="${RECEIVE_QUEUE}" \
+    -e SEND_QUEUE="${SEND_QUEUE}" \
     spellcheck
