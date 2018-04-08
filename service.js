@@ -64,12 +64,12 @@ let receive = function() {
     serviceBusService.receiveQueueMessage('texttoworker', function(error, receivedMessage){
         if(!error){
             // Message received and deleted
-            console.log("receive1");
             console.log("body: " + receivedMessage.body);
             spellcheck_call(receivedMessage.body);
         } else {
-            console.log("error1");
+            console.log("error");
         }
+        receive();
     });
     /*
     serviceBusService.receiveQueueMessage('texttoworker', { isPeekLock: true }, function(error, lockedMessage){
@@ -92,6 +92,4 @@ let receive = function() {
 
 console.log("SpellcheckService...");
 
-for(let i = 0; i < 100; i++){
-    receive();
-}
+receive();
