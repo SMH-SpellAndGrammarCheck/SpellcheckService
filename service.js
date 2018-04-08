@@ -69,6 +69,7 @@ let receive = function() {
         } else {
             console.log("error");
         }
+        // *TODO* insert receive again
         receive();
     });
     /*
