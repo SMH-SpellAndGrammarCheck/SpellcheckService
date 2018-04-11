@@ -1,11 +1,17 @@
+/**
+ * Worker to receive messages from queue, send them to spell check api and send the response
+ * to next queue for aggregation.
+ * ------------------
+ * @author SMH - Sandro Speth, Matthias Hermann, Heiko Geppert
+ * @version 1.0.0
+ */
 'use strict';
-//var azure = require('azure');
-let https = require('https');
-var fs = require("fs");
-var azure = require('azure');
+const https = require('https');
+const fs = require("fs");
+const azure = require('azure');
 
-let host = 'api.cognitive.microsoft.com';
-let path = '/bing/v7.0/spellcheck';
+const host = 'api.cognitive.microsoft.com';
+const path = '/bing/v7.0/spellcheck';
 
 /*
 // for local execution
@@ -55,7 +61,27 @@ if (process.env.RECEIVE_QUEUE === undefined || process.env.SEND_QUEUE === undefi
 
 const serviceBusService = azure.createServiceBusService(cred.queue);
 
+/**
+ * Creating service bus queues if they not already exists
+ */
+serviceBusService.createQueueIfNotExists(cred.receiveQueue, function (error) {
+    if (!error) {
+        // Queue exists
+        console.log('[Log] Receive queue exists!');
+    }
+});
 
+serviceBusService.createQueueIfNotExists(cred.sendQueue, function (error) {
+    if (!error) {
+        // Queue exists
+        console.log('[Log] Send queue exists!');
+    }
+});
+
+
+/**
+ * Request parameter for post request to Spell Check API
+ */
 let request_params = function () {
     return {
         method: 'POST',
@@ -72,20 +98,26 @@ let request_params = function () {
     };
 };
 
+/**
+ * Response handler of POST request to Spell Check API
+ * @param {*} response 
+ */
 let response_handler = function (response) {
     let body = '';
+    // Concatenate data
     response.on('data', function (d) {
         body += d;
     });
+    // If end of response has received, parse body and process
     response.on('end', function () {
         let json = JSON.parse(body);
-        console.log("original text: " + text);
+        console.log("[Log] original text: " + text);
         //console.log("response: " + body);
         //console.log(json.flaggedTokens);
 
         // build answer
         let flaggedTokens = json.flaggedTokens; //JSON.parse(json.flaggedTokens);
-        console.log("ft: " + flaggedTokens);
+        console.log("[Log] flagged tokens: " + flaggedTokens);
 
         let findings = [];
 
@@ -105,26 +137,33 @@ let response_handler = function (response) {
         });
         
         findings.push([element.token, correction]);
-        let sentenceString = 'In the original sentence:\n' +
-        text + '\n the following tokens have been found:\n' + findings + '\n\n';
+        let sentenceString = 'In the original sentence:\n\"' +
+        text + '\"\n the following tokens have been found:\n\"' + findings + '\"\n\n';
         customProperties['findings'] = findings > 0;
         send(sentence,  customProperties);
     });
     response.on('error', function (e) {
-        console.log('Error: ' + e.message);
+        console.log('[Error] ' + e.message);
     });
 };
 
+/**
+ * Call POST request to spell check api
+ * @param {*} originalText 
+ */
 let spellcheck_call = function (originalText) {
     text = ""
     text = originalText;
-    console.log("size: " + text.length);
+    console.log("[Log] text size: " + text.length);
     let req = https.request(request_params(), response_handler);
     req.write("text=" + text);
     //console.log(req);
     req.end();
 };
 
+/**
+ * Recursive function to receive messages.
+ */
 let receive = function () {
     serviceBusService.receiveQueueMessage(cred.receiveQueue, function (error, receivedMessage) {
         if (!error) {
@@ -133,20 +172,25 @@ let receive = function () {
             customProperties = receivedMessage.customProperties;
             spellcheck_call(receivedMessage.body);
         } else {
-            console.log("error");
+            console.log("[Log] Error receiving message: " + error);
         }
-        // *TODO* insert receive again
         receive();
     });
 };
 
+/**
+ * Send message to queue for aggregation
+ * @param {*} text text with original and findingd
+ * @param {*} findings boolean if there are findings to filter in aggregator
+ * @param {*} metaData customProperties for message
+ */
 let send = function (text, findings, metaData) {
     let message = {
         body: text,
         customProperties: metaData
     };
 
-    serviceBusService.sendQueueMessage(cred.sendQueue, JSON.stringify(message), function (error) {
+    serviceBusService.sendQueueMessage(cred.sendQueue, message, function (error) {
         if (!error) {
             // message sent
             console.log('[Log] Sending message ' + message.customProperties.chunknr);
@@ -154,7 +198,5 @@ let send = function (text, findings, metaData) {
         }
     });
 }
-
-console.log("SpellcheckService...");
 
 receive();
